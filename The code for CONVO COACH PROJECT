@@ -1,0 +1,107 @@
+mport google.generativeai as genai
+import speech_recognition as sr
+import pyttsx3
+import time
+
+# Initialize speech engine
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)  # Speed of speech
+engine.setProperty('volume', 1.0)  # Volume (0.0 to 1.0)
+
+# Initialize speech recognizer
+recognizer = sr.Recognizer()
+
+def speak(text):
+    print("\nConvoBot:", text)
+    engine.say(text)
+    engine.runAndWait()
+
+def listen():
+    with sr.Microphone() as source:
+        print("\nListening...")
+        recognizer.adjust_for_ambient_noise(source, duration=0.5)
+        try:
+            audio = recognizer.listen(source, timeout=5)
+            text = recognizer.recognize_google(audio)
+            print("You:", text)
+            return text
+        except sr.WaitTimeoutError:
+            speak("I couldn't hear anything. Please try again.")
+            return None
+        except sr.UnknownValueError:
+            speak("I couldn't understand that. Please try again.")
+            return None
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            return None
+
+genai.configure(api_key="AIzaSyCS_RiG_ENKDiOet8SYxCwENpIIocKIHs0")
+
+generation_config = {
+    "temperature": 1,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 8192,
+    "response_mime_type": "text/plain",
+}
+
+model = genai.GenerativeModel(
+    model_name="gemini-2.0-flash",
+    generation_config=generation_config,
+)
+
+# Initialize chat history
+chat_history = []
+
+initial_prompts = [
+    {
+        "input": "Who are you?",
+        "output": "Hello! I'm ConvoBot, your AI English tutor from CONVO COACH. I'm designed to help you master English through natural conversations. I can assist with grammar, pronunciation, vocabulary, and real-world communication scenarios. How would you like to improve your English today?"
+    },
+    {
+        "input": "What can you teach me?",
+        "output": "As your CONVO COACH tutor, I can help you with: 1) Grammar correction and explanations 2) Pronunciation practice 3) Vocabulary building 4) Conversation practice 5) Business English 6) Idioms and expressions. What would you like to focus on?"
+    },
+    {
+        "input": "I want to practice speaking",
+        "output": "Great choice! At CONVO COACH, we believe in learning through real conversations. Let's start with a role-play scenario. Would you prefer: 1) Job interview practice 2) Restaurant ordering 3) Business meeting, or 4) Casual conversation?"
+    },
+    {
+        "input": "My grammar is not good",
+        "output": "Don't worry! CONVO COACH specializes in making grammar learning natural and fun. Let's start by you telling me about your day, and I'll help correct any mistakes while explaining the rules in a simple way. How does that sound?"
+    }
+]
+
+# Modified chat loop
+speak("Welcome to CONVO COACH English Tutor! Say 'exit' to end the conversation.")
+
+# Initialize chat with personality context
+chat_history = []
+for prompt in initial_prompts:
+    chat_history.extend([
+        f"input: {prompt['input']}",
+        f"output: {prompt['output']}"
+    ])
+
+while True:
+    user_input = listen()
+    
+    if user_input is None:
+        continue
+    
+    if user_input.lower() == 'exit':
+        speak("Thank you for learning with CONVO COACH! Have a great day!")
+        break
+    
+    chat_history.extend([
+        f"input: {user_input}",
+        "output: As your CONVO COACH tutor, "
+    ])
+    
+    try:
+        response = model.generate_content(chat_history[-10:])  # Keep last 5 exchanges for context
+        speak(response.text)
+        chat_history[-1] = f"output: {response.text}"
+    except Exception as e:
+        speak("I apologize, but I couldn't process that. Could you rephrase your question?")
+        chat_history = chat_history[:-2]
